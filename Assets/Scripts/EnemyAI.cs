@@ -16,6 +16,9 @@ public class EnemyAI : MonoBehaviour
     private bool playerLastSeen;
     private Vector3 currentVelocity = Vector3.zero;
 
+    // Layer mask for solid objects
+    public LayerMask solidObjectsLayer;
+
     void Start()
     {
         // Initialize the last known player position to the initial position of the enemy
@@ -62,12 +65,22 @@ public class EnemyAI : MonoBehaviour
         Vector2 direction = player.transform.position - transform.position;
         direction.Normalize();
 
-        // Sets AI angle, allows for directional tracking
-        float angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
-        transform.position = Vector2.MoveTowards(transform.position, player.transform.position, speed * Time.deltaTime);
-        transform.rotation = Quaternion.Euler(Vector3.forward * angle);
-        lastKnownPlayerPosition = player.transform.position;
-        playerLastSeen = true;
+        // Check if the next position is walkable before moving towards the player
+        Vector3 nextPosition = transform.position + (Vector3)direction * speed * Time.deltaTime;
+        if (IsWalkable(nextPosition))
+        {
+            // Sets AI angle, allows for directional tracking
+            float angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
+            transform.position = Vector2.MoveTowards(transform.position, player.transform.position, speed * Time.deltaTime);
+            transform.rotation = Quaternion.Euler(Vector3.forward * angle);
+            lastKnownPlayerPosition = player.transform.position;
+            playerLastSeen = true;
+        }
+        else
+        {
+            // Player cannot move towards the player, so stop chasing
+            playerLastSeen = false;
+        }
     }
 
     // Move the enemy towards the last known player position
@@ -76,7 +89,15 @@ public class EnemyAI : MonoBehaviour
         float roamingDistance = Vector2.Distance(transform.position, lastKnownPlayerPosition);
         if (roamingDistance > roamRadius)
         {
-            transform.position = Vector3.SmoothDamp(transform.position, lastKnownPlayerPosition, ref currentVelocity, smoothTime, speed);
+            // Check if the target position is walkable
+            if (IsWalkable(lastKnownPlayerPosition))
+            {
+                transform.position = Vector3.SmoothDamp(transform.position, lastKnownPlayerPosition, ref currentVelocity, smoothTime, speed);
+            }
+            else
+            {
+                playerLastSeen = false; // Player is behind a solid object, stop chasing
+            }
         }
         else
         {
@@ -90,7 +111,12 @@ public class EnemyAI : MonoBehaviour
         float randomX = UnityEngine.Random.Range(-5f, 5f);
         float randomY = UnityEngine.Random.Range(-5f, 5f);
         Vector3 randomDirection = new Vector3(randomX, randomY, 0);
-        transform.position = Vector3.SmoothDamp(transform.position, randomDirection, ref currentVelocity, smoothTime, speed);
+        
+        // Check if the target position is walkable
+        if (IsWalkable(randomDirection))
+        {
+            transform.position = Vector3.SmoothDamp(transform.position, randomDirection, ref currentVelocity, smoothTime, speed);
+        }
     }
 
     // Gradually reduce speed as it approaches last known player position
@@ -98,5 +124,15 @@ public class EnemyAI : MonoBehaviour
     {
         speed -= 0.1f * Time.deltaTime;
         speed = Mathf.Max(speed, minSpeed);
+    }
+
+    // Function to check if a position is walkable
+    bool IsWalkable(Vector3 targetPosition)
+    {
+        Vector3 direction = targetPosition - transform.position;
+        
+        RaycastHit2D hit = Physics2D.Raycast(transform.position, direction, direction.magnitude, solidObjectsLayer);
+        
+        return hit.collider == null;
     }
 }

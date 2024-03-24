@@ -10,6 +10,15 @@ public class PlayerController : MonoBehaviour
     public float dashSpeedMultiplier;
     private bool canDash = true;
     private Vector2 input; 
+    public LayerMask solidObjectsLayer;
+
+    private Animator animator;
+    private bool isMoving;
+
+    private void Awake()
+    {
+        animator = GetComponent<Animator>();
+    }
 
     void Update()
     {
@@ -20,6 +29,10 @@ public class PlayerController : MonoBehaviour
         // Check if there's any input from the player
         if (input != Vector2.zero)
         {
+
+            animator.SetFloat("moveX", input.x);
+            animator.SetFloat("moveY", input.y);
+
             // Check if the dash button (X key) is pressed
             if (Input.GetKeyDown(KeyCode.X) && canDash)
             {
@@ -34,10 +47,17 @@ public class PlayerController : MonoBehaviour
                 targetPos.x += input.x;
                 targetPos.y += input.y;
 
+                if(isWalkable(targetPos)) 
+                {
                 // Move towards the target position with regular movement speed
                 transform.position = Vector3.MoveTowards(transform.position, targetPos, moveSpeed * Time.deltaTime);
+                }
             }
         }
+
+
+        animator.SetBool("IsMoving", isMoving);
+
     }
 
     // Coroutine for handling the dash movement (Function is used executing over mutiple frames)
@@ -68,5 +88,14 @@ public class PlayerController : MonoBehaviour
         canDash = false;
         yield return new WaitForSeconds(dashCooldown); // Wait for the dash cooldown period
         canDash = true;
+    }
+
+    private bool isWalkable(Vector3 targetPos) 
+    {
+        if(Physics2D.OverlapCircle(targetPos, 0.2f, solidObjectsLayer) != null)
+        {
+            return false;
+        }
+        return true;
     }
 }
